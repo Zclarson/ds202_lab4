@@ -1,0 +1,83 @@
+---
+title: 'Lab #4'
+author: "Nikole Slinger"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Part 1.
+
+Although the three Excel sheets are loaded into R, they are not useful before some cleaning. Manipulate the three imported data frames, so that in the cleaned dataset:
+
+1. The player names and opponent names are factors.
+2. All offensive and defensive statistics are numerical. The Weight column in biogrpahy is also numeric. (Optional: Read ?across and learn to mutate multiple columns simultaneously using the across function in dplyr)
+3. Change the Height column in biography into numeric. (Hint: Use a unit that works well)
+
+```{r}
+
+```
+
+## Part 2.
+
+### Problem 1.
+Reformat the offClean data frame into a tidy format using pivot_longer. The type of statistic (Receiving_REC for the number of receivings, Receiving_YDS for receiving yards) is added as a new key column named stat.
+
+```{r}
+
+```
+
+### Problem 2.
+Show on the distributions of the offensive statistics. The distribution of each offensive statsitic should be shown in a separate facet. Explain the patterns you see.
+
+```{r}
+
+```
+
+### Problem 3.
+Did ISU have better offense against Oregon or Oklahoma? Answer this question by creating a scatterplot with the x- and y-axes being the receiving yards of the ISU players against these two opponents. A large number of receiving yards indicates good offense.
+
+```{r}
+
+```
+
+### Problem 4.
+Separate the Hometown column into two columns, namely, the city and the state where the player comes from. Print the first few rows of these two columns. (Hint: look at the sep= argument of separate)
+
+```{r}
+
+```
+
+### Problem 5.
+How many players are there from each state?
+
+```{r}
+
+```
+
+## Part 3.
+
+### Problem 1.
+Find which states do the ISU players (both defensive and offensive) come from. Create an appropriate numerical or graphical summary.
+
+```{r}
+
+```
+
+### Problem 2.
+How does the performance of quarterback Brock Purdy relate to the performance of the ISU team?
+
+```{r}
+
+```
+
+### Problem 3.
+Which ISU player(s) made the biggest progress over the last year? Compare the player-level statistics (i.e. averages and totals for each player) using both the 2020 and the 2019 data here. Choose for yourself the player statistics to investigate.
+
+```{r}
+
+```
+
+
