@@ -1,0 +1,175 @@
+---
+title: "Individual1ZL.Rmd"
+author: "Zack Larson"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Loading Data
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(readxl)
+defense <- read_excel('./cyclonesFootball2020.xlsx', sheet='Defensive')
+str(defense)
+offense <- read_excel('./cyclonesFootball2020.xlsx', sheet='Offensive')
+str(offense)
+biography <- read_excel('./cyclonesFootball2020.xlsx', sheet='Biography')
+str(biography)
+```
+
+# Part One
+### 1.
+```{r}
+offense$Name <- as.factor(offense$Name)
+offense$Opponent_Opponent <- as.factor(offense$Opponent_Opponent)
+str(offense)
+defense$Name <- as.factor(defense$Name)
+defense$Opponent_Opponent <- as.factor(defense$Opponent_Opponent)
+str(defense)
+biography$Name <- as.factor(biography$Name)
+str(biography)
+```
+
+### 2.
+```{r}
+##Offense
+offense$Receiving_REC <- as.numeric(offense$Receiving_REC)
+offense$Receiving_YDS <- as.numeric(offense$Receiving_YDS)
+offense$Receiving_TD <- as.numeric(offense$Receiving_TD)
+offense$Rushing_ATT <- as.numeric(offense$Rushing_ATT)
+offense$Rushing_YDS <- as.numeric(offense$Rushing_YDS)
+offense$Rushing_TD <- as.numeric(offense$Rushing_TD)
+
+#This is so that we can separate the Passing_CMP-ATT column
+names(offense) <- gsub("-", "_", names(offense), fixed = TRUE)
+
+offense <- separate(offense, Passing_CMP_ATT, c('Passing_CMP', 'Passing_ATT'), sep='-\r\n                                                    ')
+offense$Passing_CMP <- as.numeric(offense$Passing_CMP)
+offense$Passing_ATT <- as.numeric(offense$Passing_ATT)
+offense$Passing_YDS <- as.numeric(offense$Passing_YDS)
+offense$Passing_TD <- as.numeric(offense$Passing_TD)
+offense$Passing_INT <- as.numeric(offense$Passing_INT)
+
+##Defense
+defense$Tackles_Solo <- as.numeric(defense$Tackles_Solo)
+defense$Tackles_ASST <- as.numeric(defense$Tackles_ASST)
+defense$Tackles_TFL <- as.numeric(defense$Tackles_TFL)
+defense$Tackles_Sack <- as.numeric(defense$Tackles_Sack)
+defense$Turnover_FF <- as.numeric(defense$Turnover_FF)
+defense$Turnover_FR <- as.numeric(defense$Turnover_FR)
+defense$Turnover_INT <- as.numeric(defense$Turnover_INT)
+defense$Pass_QBH <- as.numeric(defense$Pass_QBH)
+defense$Pass_PB <- as.numeric(defense$Pass_PB)
+
+#Biography
+biography$Weight <- as.numeric(biography$Weight)
+```
+
+### 3.
+```{r}
+biography <- separate(biography, Height, c('Feet', 'Inches'), sep='-')
+biography$Feet <- as.numeric(biography$Feet)
+biography$Inches <- as.numeric(biography$Inches)
+biography$Height <- (12*biography$Feet) + biography$Inches
+biography <- biography[ , c("Name","Position","Weight","Class","Hometown","Highschool","Height")]
+bioClean <- biography
+offClean <- offense
+defClean <- defense
+str(bioClean)
+str(offClean)
+str(defClean)
+```
+
+# Part Two
+### 1.
+```{r}
+offClean <- pivot_longer(offClean, Receiving_REC:Passing_INT, names_to='stat', values_to='Amount') 
+```
+
+### 2.
+This data shows that there are some stats that have a wide distribution among players while others are much more smaller in distribution. This can mainly be because of the typical number of players who usually obtain these stats. For example, the passing touchdowns stat has a large range of stat accumulation because there is typically only one quarterback who throws the passes on a team in a game. On the other hand, receiving yards is more widely distributed because there are several recievers who catch a ball and accumulate receiving yards in a game.
+```{r}
+unique(offClean[c("stat")])
+offCleanNoNA <- offClean[!is.na(offClean$Amount),]
+ggplot(offCleanNoNA,aes(y=Amount)) + geom_point(stat='count') + facet_grid(. ~ stat)
+```
+
+### 3.
+ISU Football looked to have a better game offensively vs Oklahoma because there were more points towards the right side of the graph meaning more points with more receiving yards. There were also a high distribution of more points with more yards in general vs Oklahoma then vs Oregon.
+```{r}
+goodOffense <- offClean %>% filter(stat == "Receiving_YDS" & (Opponent_Opponent == "Oklahoma" | Opponent_Opponent == "Oregon"))
+ggplot(goodOffense, aes(x = Amount, y = factor(Opponent_Opponent))) + geom_point()
+```
+
+### 4.
+```{r}
+biography <- separate(biography, Hometown, c('City', 'State'), sep=', ')
+head(biography)
+```
+
+### 5.
+```{r}
+biography %>% count(State)
+```
+
+# Part Three
+### 1.
+```{r}
+offensivePlayers <- inner_join(biography, offense, by = "Name")
+offensivePlayers <- offensivePlayers[ , c("Name","State")]
+offensivePlayers <- offensivePlayers %>% group_by(Name) %>% distinct()
+offensivePlayers
+
+defensivePlayers <- inner_join(biography, defense, by = "Name")
+defensivePlayers <- defensivePlayers[ , c("Name","State")]
+defensivePlayers <- defensivePlayers %>% group_by(Name) %>% distinct()
+defensivePlayers
+``` 
+
+### 2.
+For my analysis, I looked at the total yards that Purdy accumulated via rushing and passing, then compared those stats with the outcome of the game either in a win or loss. I found the win and loss data easily online and added that to the existing Purdy data frame. I found that Purdy's performance does relate to the Team's Performance because in the graph shown, the games that ISU wins, is where Purdy has the most total yards. For example, in the 3 worst total yards Purdy had in a game, 2 of them were team losses. Therefore, we can safely say that Purdy's success is related to ISU's team success. 
+```{r}
+Purdy <- offense %>% filter(Name == "Purdy, Brock")
+Purdy$TotalYards <- Purdy$Passing_YDS + Purdy$Rushing_YDS
+Purdy <- Purdy[ , c("Name","Opponent_Opponent","TotalYards")]
+
+#Found game results for each opponent online and added them to df to see team performance vs Purdy's performance
+Purdy$GameResult <- c("Loss", "Win", "Win", "Win", "Loss", "Win", "Win", "Win", "Win", "Win", "Loss", "Win")
+ggplot(Purdy, aes(x = factor(Opponent_Opponent), y = TotalYards,fill=GameResult)) + 
+  geom_histogram(stat='Identity')
+```
+
+### 3.
+I decided to focus my study of improvement on defensive players, more specifically with the average number of solo tackles a game. I then compared that data to the previous season's data and found 15 players who played in both years and ordered them by the average number of tackles that they gained per game from last year. In doing so, I found that Mike Rose, Jake Hummel, and JaQuan Bailey were among the most improved players on defense because they all got, on average, one more solo tackle a game than the previous year.
+```{r}
+#Compare defense players' tackles after cleaning the 2019 data
+defense2019 <- read_excel('./cyclonesFootball2019.xlsx', sheet='Defensive')
+defense2019$Name <- as.factor(defense2019$Name)
+defense2019$Opponent_Opponent <- as.factor(defense2019$Opponent_Opponent)
+defense2019$Tackles_Solo <- as.numeric(defense2019$Tackles_Solo)
+defense2019$Tackles_ASST <- as.numeric(defense2019$Tackles_ASST)
+defense2019$Tackles_TFL <- as.numeric(defense2019$Tackles_TFL)
+defense2019$Tackles_Sack <- as.numeric(defense2019$Tackles_Sack)
+defense2019$Turnover_FF <- as.numeric(defense2019$Turnover_FF)
+defense2019$Turnover_FR <- as.numeric(defense2019$Turnover_FR)
+defense2019$Turnover_INT <- as.numeric(defense2019$Turnover_INT)
+defense2019$Pass_QBH <- as.numeric(defense2019$Pass_QBH)
+defense2019$Pass_PB <- as.numeric(defense2019$Pass_PB)
+
+defense2020 <- defense %>% 
+  group_by(Name) %>% distinct() %>% summarise(Tackles_Solo = mean(Tackles_Solo, na.rm = TRUE)) %>% rename(soloTacklesFrom2020 = Tackles_Solo)
+
+
+defense2019 <- defense2019 %>% 
+  group_by(Name) %>% distinct() %>% summarise(Tackles_Solo = mean(Tackles_Solo, na.rm = TRUE)) %>% rename(soloTacklesFrom2019 = Tackles_Solo)
+defenseImprovements <- inner_join(defense2020, defense2019, by = "Name")
+
+defenseImprovements$numberOfTacklesIncreased <- defenseImprovements$soloTacklesFrom2020 - defenseImprovements$soloTacklesFrom2019
+
+defenseImprovements[order(defenseImprovements$numberOfTacklesIncreased, decreasing = TRUE),]
+```
