@@ -4,98 +4,51 @@ author: "Julia Lundstrum, Nikole Slinger, and Zack Larson"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
 # Loading Data
 ```{r}
 library(tidyverse)
 library(readxl)
 defense <- read_excel('./cyclonesFootball2020.xlsx', sheet='Defensive')
-str(defense)
 offense <- read_excel('./cyclonesFootball2020.xlsx', sheet='Offensive')
-str(offense)
 biography <- read_excel('./cyclonesFootball2020.xlsx', sheet='Biography')
-str(biography)
 ```
 
 # Part One
-### 1.
-Here we've successfully made the player and opponenent name columns into factors.
+Here we've successfully made the player and opponent name columns into factors. We then make all statistics numerical and separate columns as needed.
 ```{r}
 # offense
-offense$Name <- as.factor(offense$Name)
-offense$Opponent_Opponent <- as.factor(offense$Opponent_Opponent)
+offClean <- offense %>%
+  mutate(across(c('Name','Opponent_Opponent'), as.factor)) %>%
+  separate(`Passing_CMP-ATT`, c('Passing_CMP','Passing_ATT')) %>%
+  mutate(across(c(3:13), as.numeric))
 str(offense)
 # defense
-defense$Name <- as.factor(defense$Name)
-defense$Opponent_Opponent <- as.factor(defense$Opponent_Opponent)
+defClean <- defense %>%
+  mutate(across(c('Name','Opponent_Opponent'), as.factor)) %>%
+  mutate(across(c(3:11), as.numeric))
 str(defense)
 # biography
-biography$Name <- as.factor(biography$Name)
+bioClean <- biography %>%
+  mutate(Name = as.factor(Name)) %>%
+  separate(Height, c('Ft', 'In')) %>%
+  mutate(across(c('Ft','In', 'Weight'), as.numeric), Height = 12 * Ft + In)
+#Separated height and made new height column that is the total height in inches.
 str(biography)
-```
-
-### 2.
-Here we're able to make all statistics in `offense`, `defense`, and `biography` numerical (instead of characters).
-```{r}
-#This is so we can separate the Passing_CMP-ATT column in offense
-names(offense) <- gsub("-", "_", names(offense), fixed = TRUE)
-offense <- separate(offense, Passing_CMP_ATT, c('Passing_CMP', 'Passing_ATT'), sep='-\r\n')
-
-#Offense
-offense <- offense %>%
-  mutate(across(Receiving_REC:Passing_INT, as.numeric))
-
-#Defense
-defense <- defense %>%
-  mutate(across(Tackles_Solo:Pass_PB, as.numeric))
-
-#Biography
-biography$Weight <- as.numeric(biography$Weight)
-```
-
-### 3.
-Here we separated `Height` into `Feet` and `Inches` where we used those columns and calculated a total height value which we replaced with `Height` (which is now in total inches).
-```{r}
-# separating into ft and in
-biography <- biography %>%
-  separate(Height, c('Feet', 'Inches'))
-# calculating into a total inches column, then removing the extra columns used
-biography <- biography %>%
-  mutate(Feet = as.numeric(Feet),
-         Inches = as.numeric(Inches),
-         Height = 12 * Feet + Inches)
-biography <- biography %>%
-  select(Name, Position, Weight, Class, Hometown, Highschool, Height)
-# finalizing the cleaned data
-bioClean <- biography
-offClean <- offense
-defClean <- defense
-
-str(bioClean)
-str(offClean)
-str(defClean)
 ```
 
 # Part Two
 ### 1.
 Using `pivot_longer` to reformat the data set and include a new column.
 ```{r}
-offClean <- pivot_longer(offClean, Receiving_REC:Passing_INT, names_to='stat', values_to='Amount') 
+offCleanp <- pivot_longer(offClean, Receiving_REC:Passing_INT, names_to='stat', values_to='Amount') 
 ```
 
 ### 2.
 This data shows that there are some stats that have a wide distribution among players while others are much more smaller in distribution. This can mainly be because of the typical number of players who usually obtain these stats or based on the "number"/value of the stat itself. For example, the passing touchdowns stat has a large range of stat accumulation because there is typically only one quarterback who throws the passes on a team in a game. On the other hand, receiving yards is more widely distributed because there are several relievers who catch a ball and accumulate receiving yards in a game. Additionally, Passing, Receiving, and Rushing Yards (the three most distributed stats) have values such as 200 or higher, because it makes sense for players to have a lot of "yards", where on the other hand the intercept stats are much lower because intercepts don't happen too often in games, usually only once or twice.
 
-```{r}
-unique(offClean[c("stat")])
-# getting rid of NAs
-offCleanNoNA <- offClean[!is.na(offClean$Amount), ]
-# plotting a facet grid with the stats
-ggplot(offCleanNoNA, aes(y=Amount)) + geom_point(stat='count') + facet_grid(. ~ stat) + 
-  theme(axis.text.x = element_text(angle = 90))
+```{r, fig.width=10, fig.height=6}
+# plotting a facet wrap with the stats
+ggplot(subset(offCleanp, !is.na(Amount)), aes(y = Amount, colour = factor(stat))) + geom_point(stat='count') + facet_wrap(. ~ stat, scales="free") + xlab("Number of Players") + theme(axis.text.x = element_text(angle = 90))
 ```
 
 ### 3.
@@ -103,11 +56,10 @@ When based off of the Receiving Yards stat, ISU Football looked to have a better
 
 ```{r}
 # separating so we only have Oregon and Oklahoma Receiving Yard data
-goodOffense <- offClean %>% 
-  filter(stat == "Receiving_YDS" & (Opponent_Opponent == "Oklahoma" | Opponent_Opponent == "Oregon"))
+goodOffense <- offCleanp %>% 
+  filter(stat == "Receiving_YDS" & (Opponent_Opponent == "Oklahoma" | Opponent_Opponent == "Oregon") & !is.na(Amount))
 # creating scatter plot and boxplot
-ggplot(goodOffense, aes(x = Amount, y = factor(Opponent_Opponent))) + geom_point() +
-  ggtitle("Best ISU Offensive Game") + ylab("Opponent") + xlab("Receiving Yards")
+ggplot(goodOffense, aes(y = Amount, colour = Opponent_Opponent, shape = Opponent_Opponent)) + geom_point(stat='count') + xlab("Number of Players") + ylab("Receiving Yards")
 
 boxplot(data = goodOffense, Amount~Opponent_Opponent, main = 'Best ISU Offensive Game: Oklahoma or Oregon', 
         xlab = 'Team', ylab = 'Receiving Yards')
@@ -116,7 +68,7 @@ boxplot(data = goodOffense, Amount~Opponent_Opponent, main = 'Best ISU Offensive
 ### 4.
 We separated `Hometown` into `City` and `State` using the ', ' characters.
 ```{r}
-biography <- separate(biography, Hometown, c('City', 'State'), sep=', ')
+biography <- separate(bioClean, `Hometown`, c('City', 'State'), sep=', ')
 head(biography)
 ```
 
@@ -131,25 +83,14 @@ biography %>% count(State)
 Based off of both numerical and graphical summaries, we can tell that the most frequent home state of offensive players at Iowa State is Florida with 3 players, while the most frequent home state for defensive players is Iowa with 10 players.
 
 ```{r}
-offensivePlayers <- inner_join(biography, offense, by = "Name")
-offensivePlayers <- offensivePlayers[ , c("Name","State")]
-offensivePlayers <- offensivePlayers %>% group_by(Name) %>% distinct()
-offensivePlayers
-
-defensivePlayers <- inner_join(biography, defense, by = "Name")
-defensivePlayers <- defensivePlayers[ , c("Name","State")]
-defensivePlayers <- defensivePlayers %>% group_by(Name) %>% distinct()
-defensivePlayers
-
-# making states into factors for bar chart
-defensivePlayers$State <- factor(defensivePlayers$State)
-offensivePlayers$State <- factor(offensivePlayers$State)
-
-# creating bar chart for offensive and defensive data
-ggplot(offensivePlayers, aes(x = State)) + geom_bar() + 
-  ggtitle('ISU Offense Player Home States') + xlab('State') + ylab('Count')
-ggplot(defensivePlayers, aes(x = State)) + geom_bar() + 
-  ggtitle('ISU Defense Player Home States') + xlab('State') + ylab('Count')
+bothplayers <- full_join(offClean, defClean, by = 'Name')
+both <- offClean %>%
+  full_join(defClean, by = 'Name') %>%
+  inner_join(biography, by = 'Name') %>%
+  select(Name, State) %>%
+  group_by(Name) %>%
+  distinct()
+ggplot(both, aes(x = State)) + geom_bar(fill = 'blue') + ylab('Number of Players') + ggtitle('ISU Offense Player Home States')
 ``` 
 
 ### 2.
@@ -157,7 +98,7 @@ For our analysis, we looked at the total yards that Purdy accumulated via rushin
 
 ```{r}
 # creating total yards column to use as purdy's primary stat
-Purdy <- offense %>% filter(Name == "Purdy, Brock")
+Purdy <- offClean %>% filter(Name == "Purdy, Brock")
 Purdy <- Purdy %>% mutate(TotalYards = Passing_YDS + Rushing_YDS)
 Purdy <- Purdy %>% select(Name, Opponent_Opponent, TotalYards)
 
@@ -177,18 +118,16 @@ defense2019 <- read_excel('./cyclonesFootball2019.xlsx', sheet = 'Defensive')
 
 # fixing column names so the names are factors and stats are numeric
 defense2019 <- defense2019 %>%
-  mutate(Name = as.factor(Name), Opponent_Opponent = as.factor(Opponent_Opponent),
+  mutate(across(c('Name','Opponent_Opponent'), as.factor),
          across(Tackles_Solo:Pass_PB, as.numeric))
 # 2020 summaries
-defense2020 <- defense %>% 
+defense2020 <- defClean %>% 
   group_by(Name) %>% distinct() %>% 
-  summarise(Tackles_Solo = mean(Tackles_Solo, na.rm = TRUE)) %>% 
-  rename(soloTacklesFrom2020 = Tackles_Solo)
+  summarise(soloTacklesFrom2020 = mean(Tackles_Solo, na.rm = TRUE))
 # 2019 summaries
 defense2019 <- defense2019 %>% 
   group_by(Name) %>% distinct() %>%
-  summarise(Tackles_Solo = mean(Tackles_Solo, na.rm = TRUE)) %>%
-  rename(soloTacklesFrom2019 = Tackles_Solo)
+  summarise(soloTacklesFrom2019 = mean(Tackles_Solo, na.rm = TRUE))
 # joining summaries into new data frame to compare
 defenseImprovements <- inner_join(defense2020, defense2019, by = "Name")
 # finding differences between 2019 and 2020

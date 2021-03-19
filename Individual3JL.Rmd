@@ -1,0 +1,96 @@
+---
+title: "Individual 3"
+author: "Julia Lundstrum"
+date: "3/17/2021"
+output: html_document
+---
+
+```{r, include = FALSE}
+library(tidyverse)
+library(readxl)
+library(dplyr)
+library(ggplot2)
+defense <- read_excel('../cyclonesFootball2020.xlsx', sheet='Defensive')
+offense <- read_excel('../cyclonesFootball2020.xlsx', sheet='Offensive')
+bio <- read_excel('../cyclonesFootball2020.xlsx', sheet='Biography')
+```
+
+## Part One: Cleaning Data
+```{r}
+offClean <- offense %>%
+  mutate(across(c('Name','Opponent_Opponent'), as.factor)) %>%
+  separate(`Passing_CMP-ATT`, c('Passing_CMP','Passing_ATT')) %>%
+  mutate(across(c(3:13), as.numeric))
+bioClean <- bio %>%
+  mutate(Name = as.factor(Name)) %>%
+  separate(Height, c('Ft', 'In')) %>%
+  mutate(across(c('Ft','In', 'Weight'), as.numeric), Height = 12 * Ft + In)
+defClean <- defense %>%
+  mutate(across(c('Name','Opponent_Opponent'), as.factor)) %>%
+  mutate(across(c(3:11), as.numeric))
+str(offClean)
+str(bioClean)
+str(defClean)
+```
+
+## Part Two: Tidying
+```{r, fig.width=10, fig.height=6}
+offC <- pivot_longer(offClean, c(3:13), names_to = 'stat', values_to = 'Amount')
+ggplot(subset(offC, !is.na(Amount)), aes(y = Amount, colour = factor(stat))) + geom_point(stat='count') + facet_wrap(. ~ stat, scales="free") + xlab("Number of Players")
+```
+
+This grid shows that for each stat there are a lot of players on the team that have zero. This is due to the way that football is structured. Not every player participates in every part of the game. Receiving yards, rushing yards, passes attempted, passes completed, passing yards, and rushes attempted all appear to be spread out. This is most likely due to how large these stats get. It is not very likely that players will have the exact same number of receiving yards. 
+
+```{r}
+ggplot(subset(offC, !is.na(Amount) & stat == 'Receiving_YDS' & (Opponent_Opponent == 'Oklahoma' | Opponent_Opponent == 'Oregon')), aes(y = Amount, colour = Opponent_Opponent, shape = Opponent_Opponent)) + geom_point(stat='count') + xlab("Number of Players") + ylab("Receiving Yards")
+```
+
+```{r}
+bioClean <- separate(bioClean, `Hometown`, c('City', 'State'), sep = ', ') 
+head(bioClean)
+```
+
+```{r}
+bioClean %>% count(State)
+```
+
+## Part Three: Joining Data Frames
+```{r}
+bothplayers <- full_join(offClean, defClean, by = 'Name')
+both <- offClean %>%
+  full_join(defClean, by = 'Name') %>%
+  inner_join(bioClean, by = 'Name') %>%
+  select(Name, State) %>%
+  group_by(Name) %>%
+  distinct()
+ggplot(both, aes(x = State)) + geom_bar(fill = 'blue') + ylab('Number of Players')
+```
+
+```{r}
+Purdy <- offClean %>% filter(Name == 'Purdy, Brock')
+Purdy <- Purdy %>% mutate(TotalYards = Passing_YDS + Rushing_YDS)
+Purdy <- Purdy %>% select(Name, Opponent_Opponent, TotalYards)
+Purdy$GameResult <- c("Loss", "Win", "Win", "Win", "Loss", "Win", "Win", "Win", "Win", "Win", "Loss", "Win")
+ggplot(Purdy, aes(x = factor(Opponent_Opponent), y = TotalYards, fill = GameResult)) +
+  geom_histogram(stat = 'Identity', position = 'dodge') + ggtitle('Brock Purdy Statistics') + 
+  ylab('Total Yards') + xlab('Opponent') + theme(axis.text.x = element_text(angle = 90))
+```
+
+```{r}
+defense2019 <- read_excel('./cyclonesFootball2019.xlsx', sheet = 'Defensive')
+defense2019 <- defense2019 %>%
+  mutate(across(c('Name', 'Opponent_Opponent'), as.factor), across(Tackles_Solo:Pass_PB, as.numeric))
+defense2020 <- defClean %>% 
+  group_by(Name) %>%
+  distinct() %>% 
+  summarise(SoloTackles2020 = mean(Tackles_Solo, na.rm = TRUE))
+defense2019 <- defense2019 %>% 
+  group_by(Name) %>%
+  distinct() %>%
+  summarise(SoloTackles2019 = mean(Tackles_Solo, na.rm = TRUE))
+defenseImprovements <- inner_join(defense2020, defense2019, by = 'Name')
+defenseImprovements <- defenseImprovements %>%
+  mutate(numTacklesIncreased = SoloTackles2020 - SoloTackles2019)
+defenseImprovements[order(defenseImprovements$numTacklesIncreased, decreasing = TRUE),]
+```
+
