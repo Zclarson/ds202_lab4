@@ -83,14 +83,26 @@ biography %>% count(State)
 Based off of both numerical and graphical summaries, we can tell that the most frequent home state of offensive players at Iowa State is Florida with 3 players, while the most frequent home state for defensive players is Iowa with 10 players.
 
 ```{r}
-bothplayers <- full_join(offClean, defClean, by = 'Name')
-both <- offClean %>%
-  full_join(defClean, by = 'Name') %>%
-  inner_join(biography, by = 'Name') %>%
-  select(Name, State) %>%
-  group_by(Name) %>%
-  distinct()
-ggplot(both, aes(x = State)) + geom_bar(fill = 'blue') + ylab('Number of Players') + ggtitle('ISU Offense Player Home States')
+# using inner join to get only offensive player names and states
+OPlayers <- inner_join(biography, offClean, by = 'Name')
+OPlayers <- OPlayers %>% select(Name, State)
+OPlayers <- OPlayers %>% group_by(Name) %>% distinct()
+OPlayers
+# using inner join to get only defensive player names and states
+DPlayers <- inner_join(biography, defClean, by = 'Name')
+DPlayers <- DPlayers %>% select(Name, State)
+DPlayers <- DPlayers %>% group_by(Name) %>% distinct()
+DPlayers
+
+# making states into factors for bar chart
+DPlayers$State <- factor(DPlayers$State)
+OPlayers$State <- factor(OPlayers$State)
+
+# creating bar chart for offensive and defensive data
+ggplot(OPlayers, aes(x = State)) + geom_bar(fill = 'blue') + 
+  ggtitle('ISU Offense Player Home States') + xlab('State') + ylab('Count')
+ggplot(DPlayers, aes(x = State)) + geom_bar(fill = 'blue') + 
+  ggtitle('ISU Defense Player Home States') + xlab('State') + ylab('Count')
 ``` 
 
 ### 2.
